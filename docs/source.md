@@ -542,11 +542,11 @@ class HookCodeFactory {
 
 源码读到此处基本就没有再读下去的必要了，因为`create`函数的功能只是根据`options`来生成不同的代码片段，也就是说`sync`和`async`生成的代码片段是不同的，最后返回这个代码片段，执行他们就可以了。
 
-### 4.5 call示例
+### 4.5 `call`示例
 
 #### 4.5.1 `SyncHook`示例
 
-代码如下：
+逻辑代码如下：
 
 ```javascript
 const { SyncHook } = require('tapable');
@@ -568,7 +568,7 @@ hooks.tap({ name: 'name_3' }, (name) => {
 hooks.call('andy');
 ```
 
-最终生成代码`fn`如下：
+`debug`后最终生成代码`fn`如下：
 
 ```javascript
 (function anonymous(name
@@ -589,6 +589,8 @@ _fn2(name);
 由以上代码可以很简单看清逻辑，传入参数`name`,从`this._x`上依次取出三个消费者函数并执行。
 
 #### 4.5.2 `SyncWaterfallHook`示例
+
+逻辑代码如下：
 
 ```javascript
 const { SyncWaterfallHook } = require('tapable');
@@ -613,7 +615,7 @@ hooks.tap({ name: 'name_3' }, (name) => {
 hooks.call('andy');
 ```
 
-最终生成代码`fn`如下：
+`debug`后最终生成代码`fn`如下：
 
 ```javascript
 (function anonymous(name
