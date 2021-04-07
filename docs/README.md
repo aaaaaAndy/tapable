@@ -1,6 +1,10 @@
 # Tapable
 
-The tapable package expose many Hook classes, which can be used to create hooks for plugins.
+本文档是基于`tapable v2.2.0`版本！
+
+`tapable`是一个用来做插件化的库，它暴露了很多`Hook`类（构造函数），可以用来创建不同的`hooks`。
+
+`tapable`整体是一个发布订阅模式，由调度中心统一处理。
 
 ``` javascript
 const {
@@ -16,21 +20,31 @@ const {
  } = require("tapable");
 ```
 
-## Installation
+## 1. 安装
+
+-   `npm`方式
 
 ``` shell
 npm install --save tapable
 ```
 
-## Usage
+-   `yarn`方式
 
-All Hook constructors take one optional argument, which is a list of argument names as strings.
-
-``` js
-const hook = new SyncHook(["arg1", "arg2", "arg3"]);
+```shell
+yarn add tapable
 ```
 
-The best practice is to expose all hooks of a class in a `hooks` property:
+## 2. 使用
+
+`hook`其实可以被翻译为钩子，但是这里不建议直接翻译，还是采用`hook`的方式描述更为形象。
+
+所有的`Hook`构造函数都提供了一种可选的参数，它们将作为订阅者被调用时传入的参数名。事实上，从`v2.0.0`版本开始，在构造函数里又加入了一个可选参数`name`，用来标识当前`hook`的名字。
+
+``` js
+const hook = new SyncHook(["arg1", "arg2", "arg3"], 'name1');
+```
+
+使用`hooks`最好的方式是将它们都封装在同一个类或对象中。
 
 ``` js
 class Car {
@@ -46,7 +60,7 @@ class Car {
 }
 ```
 
-Other people can now use these hooks:
+当你把所有的`hooks`封装在一个类中时，你就可以像下面这样使用它们：
 
 ``` js
 const myCar = new Car();
@@ -55,15 +69,32 @@ const myCar = new Car();
 myCar.hooks.brake.tap("WarningLampPlugin", () => warningLamp.on());
 ```
 
-It's required to pass a name to identify the plugin/reason.
+在`v2.0.0`版本中，添加订阅者时又新增了两个可选参数：
 
-You may receive arguments:
+-   `before`：定义需要添加在哪个订阅者之前；
+-   `stage`：当天订阅者权重，默认为0，权重越小越靠前；
+
+具体示例可查看[before,stage示例](https://aaaaaandy.github.io/tapable/#/source?id=_35-%e6%8f%92%e5%85%a5%e7%a4%ba%e4%be%8b)
+
+```javascript
+myCar.hooks.brake.tap('name_1', (name) => {})
+
+myCar.hooks.brake.tap({ name: 'name_2' }, (name) => {})
+
+myCar.hooks.brake.tap({ name: 'name_3', before: 'name_2' }, (name) => {})
+
+myCar.hooks.brake.tap({ name: 'name_4', stage: -1 }, (name) => {})
+```
+
+当你需要订阅时，你需要传入一个`name`去标识当前订阅者的名字。
+
+在具体的订阅者函数中，你可以像下面这样接收参数。
 
 ``` js
 myCar.hooks.accelerate.tap("LoggerPlugin", newSpeed => console.log(`Accelerating to ${newSpeed}`));
 ```
 
-For sync hooks, `tap` is the only valid method to add a plugin. Async hooks also support async plugins:
+同步`hooks`，只能用`tap`同步方法添加订阅者；异步`hooks`除了可以用`tap`同步方法，也可以用`tapAsync`、`tapPromise`等异步方法添加订阅者。
 
 ``` js
 myCar.hooks.calculateRoutes.tapPromise("GoogleMapsPlugin", (source, target, routesList) => {
@@ -72,6 +103,7 @@ myCar.hooks.calculateRoutes.tapPromise("GoogleMapsPlugin", (source, target, rout
 		routesList.add(route);
 	});
 });
+
 myCar.hooks.calculateRoutes.tapAsync("BingMapsPlugin", (source, target, routesList, callback) => {
 	bing.findRoute(source, target, (err, route) => {
 		if(err) return callback(err);
@@ -88,7 +120,7 @@ myCar.hooks.calculateRoutes.tap("CachedRoutesPlugin", (source, target, routesLis
 		routesList.add(cachedRoute);
 })
 ```
-The class declaring these hooks need to call them:
+可以采用如下的方式去调用这些订阅者：
 
 ``` js
 class Car {
@@ -129,32 +161,29 @@ The Hook will compile a method with the most efficient way of running your plugi
 
 This ensures fastest possible execution.
 
-## Hook types
+## 3. Hook 类型
 
-Each hook can be tapped with one or several functions. How they are executed depends on the hook type:
+可以用一个或多个方法添加订阅者，但是他们具体怎么执行还是要依赖`hook`的类型。
 
-* Basic hook (without “Waterfall”, “Bail” or “Loop” in its name). This hook simply calls every function it tapped in a row.
+* `Basic hook` ：(without “Waterfall”, “Bail” or “Loop” in its name). 这个`hook`只会按顺序简单调用所有订阅者；
 
-* __Waterfall__. A waterfall hook also calls each tapped function in a row. Unlike the basic hook, it passes a return value from each function to the next function.
+* `Waterfall`： 以瀑布流的模式，按顺序触发每一个订阅者，但是会把上一个订阅者的返回结果作为下一个订阅者的参数传入；
 
-* __Bail__. A bail hook allows exiting early. When any of the tapped function returns anything, the bail hook will stop executing the remaining ones.
+* `Bail`：类似于`promise.race()`，只要有任何一个订阅者有返回内容，就暂停执行剩余的订阅者，并整体退出；
 
-* __Loop__. When a plugin in a loop hook returns a non-undefined value the hook will restart from the first plugin. It will loop until all plugins return undefined.
+* `Loop`. 一个可以循环执行的`hook`，当任何一个订阅者返回不为`undefined`时，就返回第一个订阅者，重新执行。只有当所有的订阅者都返回`undefined`时才会执行完毕。
 
-Additionally, hooks can be synchronous or asynchronous. To reflect this, there’re “Sync”, “AsyncSeries”, and “AsyncParallel” hook classes:
+钩子可以是同步的,也可以是异步的,`Sync`, `AsyncSeries` 和 `AsyncParallel` 钩子就反应了这个问题
 
-* __Sync__. A sync hook can only be tapped with synchronous functions (using `myHook.tap()`).
+* __Sync__. 一个同步`hook`只能用同步的方法(`tap`)添加订阅者；
+* __AsyncSeries__. 一个`async-series`的`hook`可以用同步方法、基于回调的方法、基于`promise`的方法添加订阅者，(使用 `myHook.tap()`, `myHook.tapAsync()` and `myHook.tapPromise()`). 它会按照顺序调用每个订阅者；
 
-* __AsyncSeries__. An async-series hook can be tapped with synchronous, callback-based and promise-based functions (using `myHook.tap()`, `myHook.tapAsync()` and `myHook.tapPromise()`). They call each async method in a row.
-
-* __AsyncParallel__. An async-parallel hook can also be tapped with synchronous, callback-based and promise-based functions (using `myHook.tap()`, `myHook.tapAsync()` and `myHook.tapPromise()`). However, they run each async method in parallel.
-
-The hook type is reflected in its class name. E.g., `AsyncSeriesWaterfallHook` allows asynchronous functions and runs them in series, passing each function’s return value into the next function.
+* __AsyncParallel__. 一个`async-parallel`的`hook`与上面`async-series`一样采用同步方法、基于回调的方法、基于`promise`的方法添加订阅者，不同的是，它会同步执行所有的订阅者，并不会按熟悉怒执行。
 
 
-## Interception
+## 4. Interception
 
-All Hooks offer an additional interception API:
+所有`Hooks`都提供了拦截器`API`：
 
 ``` js
 myCar.hooks.calculateRoutes.intercept({
@@ -177,7 +206,7 @@ myCar.hooks.calculateRoutes.intercept({
 
 **register**: `(tap: Tap) => Tap | undefined` Adding `register` to your interceptor will trigger for each added `Tap` and allows to modify it.
 
-## Context
+## 5. Context
 
 Plugins and interceptors can opt-in to access an optional `context` object, which can be used to pass arbitrary values to subsequent plugins and interceptors.
 
@@ -209,7 +238,7 @@ myCar.hooks.accelerate.tap({
 });
 ```
 
-## HookMap
+## 6. HookMap
 
 A HookMap is a helper class for a Map with Hooks
 
@@ -230,7 +259,7 @@ if(hook !== undefined) {
 }
 ```
 
-## Hook/HookMap interface
+## 7. Hook/HookMap interface
 
 Public:
 
@@ -285,7 +314,7 @@ interface HookMap {
 }
 ```
 
-## MultiHook
+## 8. MultiHook
 
 A helper Hook-like class to redirect taps to multiple other hooks:
 

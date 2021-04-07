@@ -151,7 +151,7 @@ class Hook {
 }
 ```
 
-可以看到，`Hook`的属性都在其`constructor`中定义了，其中比较重要的就是`this.taps`了，它主要保存当前`hook`的所有消费者（我把`tapable`这种工作模式归类为***生产者消费者模式***）。其实每个都很重要，因为缺少任何一段代码都会报错的。O(∩_∩)O哈哈
+可以看到，`Hook`的属性都在其`constructor`中定义了，其中比较重要的就是`this.taps`了，它主要保存当前`hook`的所有订阅者（我把`tapable`这种工作模式归类为***发布订阅者模式***）。其实每个都很重要，因为缺少任何一段代码都会报错的。O(∩_∩)O哈哈
 
 由`constructor`中的代码可以看到`tap`事件和`call`事件是成双入对的，这里就以`this.tap`和`this.call`这条线继续阅读源码。
 
@@ -211,7 +211,7 @@ class Hook {
 
 可以看到`this.tap`,`this.tapAsync`,`this.tapPromise` 最终调用的都是`this._tap`方法。只是传入的第一个参数`type`不一样。在这里不得不佩服作者的代码规范了，针对`class`的私有属性用`_`开头。
 
-具体每段代码的含义这里就不再赘述，因为上面的代码里已经加了。这里着重看后三行代码。首先把`type`,`fn`和`options`合并为一个新的`options`。然后运行一些拦截器，最后插入消费者函数。
+具体每段代码的含义这里就不再赘述，因为上面的代码里已经加了。这里着重看后三行代码。首先把`type`,`fn`和`options`合并为一个新的`options`。然后运行一些拦截器，最后插入订阅者函数。
 
 ### 3.3 拦截器
 
@@ -320,7 +320,7 @@ class Hook {
 
 ### 3.5 插入示例
 
-当执行下面一段代码插入消费者时：
+当执行下面一段代码插入订阅者时：
 
 ```javascript
 const { SyncHook } = require('tapable');
@@ -352,7 +352,7 @@ console.log(hooks);
 
 ## 4. `call`
 
-`tapable`最终通过调用`call`方法来给消费者发放消息。
+`tapable`最终通过调用`call`方法来给订阅者发布消息。
 
 ### 4.1 `call`方法
 
@@ -445,7 +445,7 @@ class HookCodeFactory {
 }
 ```
 
-可以看到`factory.setup(this, options);` 其实是把`options`里的消费者函数提取出来挂载到`hook._x`上。
+可以看到`factory.setup(this, options);` 其实是把`options`里的订阅者函数提取出来挂载到`hook._x`上。
 
 ### 4.4 `create`方法
 
@@ -643,4 +643,4 @@ return name;
 })
 ```
 
-可以很清楚看到逻辑，每次执行的结果作为下一个消费者函数的参数传入。
+可以很清楚看到逻辑，每次执行的结果作为下一个订阅者函数的参数传入。
